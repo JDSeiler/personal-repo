@@ -1,6 +1,6 @@
 '''
 The Weak Goldbach conjecture states that any odd integer greater than 5 can be represented by the sum of 3 prime numbers.
-This code can find such a preresentation given a large enough list of prime numbers. 
+This code can find such a representation given a large enough list of prime numbers. 
 '''
 
 
