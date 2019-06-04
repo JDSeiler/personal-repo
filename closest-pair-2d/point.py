@@ -9,7 +9,7 @@ class Point:
         self.x = x
         self.y = y
 
-    def abs_dist_from(self, other: Point):
+    def dist_from(self, other: Point) -> float:
         """Returns the absolute distance between self and another point."""
         relative_x = self.x - other.x
         relative_y = self.y - other.y
