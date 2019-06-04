@@ -1,4 +1,12 @@
 function reFormat(reference) {
+    /* 
+    Bible verse references are traditionally formatted: <BookName> Chapter:StartVerse - EndVerse
+    Example: Genesis 1:1-9 (Genesis chapter 1, verses 1 through 9)
+    With the major edge case being: 
+        1-4,6 (Continuous range and then discrete verse i.e. verses 1 through 4, and 6)
+    This function takes a reference in the form <BookName> Chapter:V1,V2,..,VN and formats it
+    in the traditional way.
+    */
     let bookChapter = reference.slice(0, reference.indexOf(":")) // Example: Genesis 1:1,2,3,4 => Genesis 1
     let verses = reference.slice(reference.indexOf(":") + 1, reference.length) // Example: Genesis 1:1,2,3,4 => 1,2,3,4
     let digits = verses.split(",") // Creates array out of the verses
