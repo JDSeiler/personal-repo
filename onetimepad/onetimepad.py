@@ -21,17 +21,14 @@ Ex output:
 
 [[97, 98, 99], [97, 110, 111, 116, 104, 101, 114, 32, 108, 105, 110, 101]]
 '''
-
 def stringPrepper(file_path): 
     message = open(file_path, mode="r")
     strings = message.readlines()
     message.close()
 
-    for line in strings: # Loops through text file and removes newline characters and turns all text to lowercase
-        loc = strings.index(line)
+    for index, line in enumerate(strings): # Loops through text file and removes newline characters and turns all text to lowercase
         parsed_line = line.replace("\n","")
-        strings.pop(loc)
-        strings.insert(loc, parsed_line.lower())
+        strings[index] = parsed_line.lower()
     
     seperated_str = []
     for line in strings: # This takes each visual line from the text file and puts it into its own list and places it inside the main container 'seperated_str'
@@ -51,6 +48,7 @@ def stringPrepper(file_path):
     return(prepped)
 
 def keyGenerator(prepped_list): # This function chooses a pseudo-random number for every character in the text.
+    key = []
     for line in prepped:
         line_vals = []
         for num in line:
@@ -75,14 +73,12 @@ def otpEncoder(prepped_list, key):
         for char, key in zip(line1, line2):
             cipher_step1 = int(char) + int(key)
             cipher_step2 = cipher_step1 % 122
-            cipher_char = chr((cipher_step2))
+            print(cipher_step2)
+            cipher_char = chr(cipher_step2)
             line_container.append(cipher_char)
-
-        base = ""
-        line_str = base.join(line_container)
+        line_str = "".join(line_container)
         line_str = line_str + "\n"
         cipher_text.append(line_str)
-
     return(cipher_text)
     
 '''
@@ -93,17 +89,14 @@ the cipher back into plain text.
 def otpDecoder(cipher_file, key):
 
     cipher_path = cipher_file
-    key_path = key
 
-    key_file = open(key_path, mode = "r")
+    key_file = open(key, mode = "r")
     key_data = key_file.readlines()
     key_file.close()
 
-    for line in key_data:
-        loc = key_data.index(line)
+    for index, line in enumerate(key_data):
         parsed_line = line.replace("\n", "")
-        key_data.pop(loc)
-        key_data.insert(loc, parsed_line)
+        key_data[index] = parsed_line
 
     key = []
     for line in key_data:
@@ -114,11 +107,9 @@ def otpDecoder(cipher_file, key):
     cipher_text = cipher_file.readlines()
     cipher_file.close()
 
-    for line in cipher_text:
-        loc = cipher_text.index(line)
+    for index, line in enumerate(cipher_text):
         parsed_line = line.replace("\n", "")
-        cipher_text.pop(loc)
-        cipher_text.insert(loc, parsed_line)
+        cipher_text[index] = parsed_line
 
     seperated_str = []
     for line in cipher_text:
@@ -126,6 +117,7 @@ def otpDecoder(cipher_file, key):
         for char in line:
             chars.append(char)
         seperated_str.append(chars)
+
     prepped = []
     for line in seperated_str:
         line_container = []
@@ -135,24 +127,14 @@ def otpDecoder(cipher_file, key):
         prepped.append(line_container)
 
     decoded_text = []
-
     for (line1, line2) in zip(prepped, key):
         line_container = []
         for char, key in zip(line1, line2):
             cipher_step1 = int(char) - int(key)
             cipher_step2 = cipher_step1 % 122
-            cipher_char = chr((cipher_step2))
+            cipher_char = chr(cipher_step2)
             line_container.append(cipher_char)
         decoded_text.append(line_container)
-
-    for line in decoded_text: # This loop fixes an unknown unicode issue that made all letter z's turn into '\x00' for an unknown reason
-        for char in line:
-            if char == "\x00":
-                loc = line.index(char)
-                line.pop(loc)
-                line.insert(loc, "z")
-            else:
-                pass
 
     decoded_str = []
 
