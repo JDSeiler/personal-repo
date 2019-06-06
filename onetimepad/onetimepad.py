@@ -86,18 +86,18 @@ The otpDecoder function does the exact same thing as the code above except it su
 the cipher back into plain text. 
 '''
 
-def otpDecoder(cipher_file, key):
-
-    cipher_path = cipher_file
-
+def otpDecoder(cipher_path, key):
     key_file = open(key, mode = "r")
     key_data = key_file.readlines()
     key_file.close()
 
+    # Strip newlines out of the key text
     for index, line in enumerate(key_data):
         parsed_line = line.replace("\n", "")
         key_data[index] = parsed_line
 
+
+    # Split into lists of characters????
     key = []
     for line in key_data:
         parsed_line = line.split()
@@ -107,10 +107,13 @@ def otpDecoder(cipher_file, key):
     cipher_text = cipher_file.readlines()
     cipher_file.close()
 
+    # Strip newlines out of the cipher text
     for index, line in enumerate(cipher_text):
         parsed_line = line.replace("\n", "")
         cipher_text[index] = parsed_line
 
+
+    # Split the cipher text back into characters
     seperated_str = []
     for line in cipher_text:
         chars = []
@@ -118,14 +121,16 @@ def otpDecoder(cipher_file, key):
             chars.append(char)
         seperated_str.append(chars)
 
+    # Turn the strings into ints
     prepped = []
     for line in seperated_str:
         line_container = []
         for char in line:
-            letter_num = (ord(char))
+            letter_num = ord(char)
             line_container.append(letter_num)
         prepped.append(line_container)
 
+    # Zip the cipher and the key and invert the encoding function (supposedly)
     decoded_text = []
     for (line1, line2) in zip(prepped, key):
         line_container = []
@@ -139,8 +144,7 @@ def otpDecoder(cipher_file, key):
     decoded_str = []
 
     for line in decoded_text:
-        base = ""
-        line_str =  base.join(line)
+        line_str =  "".join(line)
         line_str = line_str + "\n"
         decoded_str.append(line_str)
 
@@ -172,14 +176,16 @@ if mode == "E":
             output_k.writelines(line)
     output_k.close()
 
-    cipher_text = otpEncoder(prepped, key) # Writes the cipher text to a file
+    # Writes the cipher text to a file
+    cipher_text = otpEncoder(prepped, key) 
     cipher_file = "OTP_" + str(otp_id)
     output_c = open(cipher_file, mode="w+")
     for line in cipher_text:
         output_c.writelines(line)
     output_c.close()
 
-elif mode == "D": # Decodes a cipher given both the cipher and its key, then writes the decoded text to a file
+# Decodes a cipher given both the cipher and its key, then writes the decoded text to a file
+elif mode == "D": 
     cipher_path = input("File path to cipher: ")
     key_path = input("File path to key: ")
     decoded_text = otpDecoder(cipher_path, key_path)
