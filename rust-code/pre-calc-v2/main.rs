@@ -1,8 +1,7 @@
 mod err;
 
 use err::*;
-use std::{io, str::Chars};
-use io::{Write, stdout};
+use std::{io, io::stdout, io::Write, str::Chars};
 
 #[derive(Debug)]
 enum ParseState {
@@ -27,15 +26,14 @@ enum Operand {
 
 impl Operand {
     pub fn new(input: &str) -> Result<Operand, CalcError> {
-        let numtest = input.parse::<f64>().is_ok();
-        if numtest == true {
-            let val: f64 = input.parse::<f64>().unwrap();
+        if let Ok(val) = input.parse::<f64>() {
             Ok(Operand::Value(val))
         } else {
-            let trimmed_input = &input[1..(input.len()-1)];
+            let input_no_parens = &input[1..(input.len() - 1)];
 
-            let exp = Expression::new(trimmed_input)?;
+            let exp = Expression::new(input_no_parens)?;
             Ok(Operand::Compound(Box::new(exp)))
+
         }
     }
 
@@ -59,9 +57,8 @@ impl Expression {
         let input = input.trim();
         let op = Expression::get_operator(input)?;
 
-        let mut iter = input[1..].chars();
-        let (left, right) = Expression::get_operands(&mut iter)?;
-        
+        let (left, right) = Expression::get_operands(input[1..].chars())?;
+
         Ok(Expression {
             operator: op,
             l_expr: left,
@@ -80,72 +77,59 @@ impl Expression {
                 return Err(CalcError::new(
                     ErrorCategory::UnkownOperatorError,
                     "Operator not recognized",
-                    Some(operator_char.to_string()),
+                    Some(operator_char),
                 ))
             }
         };
         Ok(result)
     }
 
-    fn get_operands(input: &mut Chars) -> Result<(Box<Operand>, Box<Operand>), CalcError> {
-        let mut acc: Vec<Vec<char>> = Vec::new();
+    fn get_operands(input: Chars) -> Result<(Box<Operand>, Box<Operand>), CalcError> {
+        let mut acc: Vec<String> = Vec::new();
         let mut parse_state = ParseState::Waiting;
 
         for c in input {
-            let parse_result = match parse_state {
+            let (new_state, maybe_value) = match parse_state {
                 ParseState::Waiting => Expression::handle_waiting(c),
                 ParseState::Number => Expression::handle_num(c),
                 ParseState::Expression(count) => Expression::handle_exp(c, count),
-            };
-            
-            let (new_state, maybe_value) = parse_result?;
+            }?;
+
             match parse_state {
                 // If the parser was in the Waiting state and a value is found,
                 // Create a new operand and put it on the accumulator.
                 // Otherwise, do nothing
                 // Either way, advanced the parse_state afterwards
                 ParseState::Waiting => {
-                    match maybe_value {
-                        Some(c) => {
-                            let new_operand = vec![c];
-                            acc.push(new_operand);
-                        },
-                        None => {
-                            // no-op
-                        },
+                    if let Some(c) = maybe_value {
+                        acc.push(String::from(c.to_string()));
                     }
-                    parse_state = new_state;
-                },
+                }
                 // In any non-waiting state, put whatever token was found onto the
                 // last (most recent) operand in the accumulator
                 // Then advance the parse_state
                 _ => {
-                    match maybe_value {
-                        Some(c) => {
-                            acc.last_mut().unwrap().push(c)
-                        },
-                        None => {
-                            // no-op
-                        }
+                    if let Some(c) = maybe_value {
+                        acc.last_mut().unwrap().push(c)
                     }
-                    parse_state = new_state;
                 }
             }
+            parse_state = new_state;
         }
 
-        let raw_op1: String = match acc.get(0) {
-            Some(op) => op,
-            None => return Err(CalcError::new::<&str>(ErrorCategory::SyntaxError, "Operand missing", None)),
-        }.into_iter().collect();
+        let raw_op1: String = acc.get(0).ok_or_else(|| CalcError::new(
+                    ErrorCategory::SyntaxError,
+                    "Operand missing",
+                    None))?.to_string();
         
-        let raw_op2: String = match acc.get(1) {
-            Some(op) => op,
-            None => return Err(CalcError::new::<&str>(ErrorCategory::SyntaxError, "Operand missing", None)),
-        }.into_iter().collect();
+        let raw_op2: String = acc.get(1).ok_or_else(|| CalcError::new(
+                    ErrorCategory::SyntaxError,
+                    "Operand missing",
+                    None))?.to_string();
 
         let op1 = Box::new(Operand::new(&raw_op1[..])?);
         let op2 = Box::new(Operand::new(&raw_op2[..])?);
-        
+
         Ok((op1, op2))
     }
 
@@ -153,23 +137,23 @@ impl Expression {
         if input_char.is_whitespace() {
             return Ok((ParseState::Waiting, None));
         } else if input_char == '-' || input_char.is_numeric() {
-            let return_val = (ParseState::Number, Some(input_char.clone()));
+            let return_val = (ParseState::Number, Some(input_char));
             return Ok(return_val);
         } else if input_char == '(' {
-            let return_val = (ParseState::Expression(0), Some(input_char.clone()));
+            let return_val = (ParseState::Expression(0), Some(input_char));
             return Ok(return_val);
         } else {
             return Err(CalcError::new(
                 ErrorCategory::SyntaxError,
                 "Bad token for state: 'Waiting'",
-                Some(input_char.to_string()),
+                Some(input_char),
             ));
         }
     }
 
     fn handle_num(input_char: char) -> Result<(ParseState, Option<char>), CalcError> {
         if input_char == '.' || input_char.is_numeric() {
-            let return_val = (ParseState::Number, Some(input_char.clone()));
+            let return_val = (ParseState::Number, Some(input_char));
             return Ok(return_val);
         } else if input_char.is_whitespace() {
             return Ok((ParseState::Waiting, None));
@@ -177,33 +161,51 @@ impl Expression {
             return Err(CalcError::new(
                 ErrorCategory::SyntaxError,
                 "Bad token for state: 'Number'",
-                Some(input_char.to_string()),
+                Some(input_char),
             ));
         }
     }
 
-    fn handle_exp(input_char: char, paren_count: i32) -> Result<(ParseState, Option<char>), CalcError> {
+    fn handle_exp(
+        input_char: char,
+        paren_count: i32,
+    ) -> Result<(ParseState, Option<char>), CalcError> {
         if paren_count == 0 {
             if input_char == '(' {
-                let return_val = (ParseState::Expression(paren_count+1), Some(input_char.clone()));
-                return Ok(return_val)
+                let return_val = (
+                    ParseState::Expression(paren_count + 1),
+                    Some(input_char),
+                );
+                return Ok(return_val);
             } else if input_char == ')' {
-                let return_val = (ParseState::Waiting, Some(input_char.clone()));
-                return Ok(return_val)
+                let return_val = (ParseState::Waiting, Some(input_char));
+                return Ok(return_val);
             } else {
-                let return_val = (ParseState::Expression(paren_count), Some(input_char.clone()));
-                return Ok(return_val)
+                let return_val = (
+                    ParseState::Expression(paren_count),
+                    Some(input_char),
+                );
+                return Ok(return_val);
             }
         } else {
             if input_char == '(' {
-                let return_val = (ParseState::Expression(paren_count+1), Some(input_char.clone()));
-                return Ok(return_val)
+                let return_val = (
+                    ParseState::Expression(paren_count + 1),
+                    Some(input_char),
+                );
+                return Ok(return_val);
             } else if input_char == ')' {
-                let return_val = (ParseState::Expression(paren_count-1), Some(input_char.clone()));
-                return Ok(return_val)
+                let return_val = (
+                    ParseState::Expression(paren_count - 1),
+                    Some(input_char),
+                );
+                return Ok(return_val);
             } else {
-                let return_val = (ParseState::Expression(paren_count), Some(input_char.clone()));
-                return Ok(return_val)
+                let return_val = (
+                    ParseState::Expression(paren_count),
+                    Some(input_char),
+                );
+                return Ok(return_val);
             }
         }
     }
@@ -222,6 +224,7 @@ fn main() {
     let mut buffer = String::new();
     println!("Enter :q to quit");
     loop {
+        buffer.clear();
         let input = gather_exp(&mut buffer);
         if input == ":q" {
             println!("Quitting");
@@ -229,27 +232,26 @@ fn main() {
         } else {
             let expr = Expression::new(input);
             match expr {
-                Ok(valid) => println!("= {:#?}", valid.calculate()),
-                Err(e) => println!("Expression was invalid! {:#?}", { e }),
+                Ok(valid) => println!("= {}", valid.calculate()),
+                Err(e) => println!("Expression was invalid! {}", { e }),
             }
-            buffer.clear();
         }
     }
 }
 
 fn gather_exp(input: &mut String) -> &str {
     print!("> ");
-    let _ = stdout().flush();
+    let _ = stdout().flush().unwrap();
     io::stdin()
         .read_line(input)
-        .expect("Fatal Error: Failed to read expression!");
+        .unwrap();
     input.trim()
 }
 
 fn get_chr(index: usize, source: &str) -> Result<char, CalcError> {
     match source.chars().nth(index) {
         Some(chr) => Ok(chr),
-        None => Err(CalcError::new::<&str>(
+        None => Err(CalcError::new(
             ErrorCategory::SyntaxError,
             "Issue grabbing character",
             None,
