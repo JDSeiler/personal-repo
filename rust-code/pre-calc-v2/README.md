@@ -1,4 +1,5 @@
 # Pre-Calc V2
+![example-usage](https://raw.githubusercontent.com/JDSeiler/personal-repo/master/rust-code/pre-calc-v2/example.png)
 ## Purpose
 The original Pre-Calc was a fun project to work on, but I was very new to Rust when I wrote it and frankly the code is pretty bad.
 V2 was written as a way to "redeem" the original Pre-Calc by fixing some of the problems with the original, and writing it in 
