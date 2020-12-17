@@ -2,6 +2,9 @@ mod err;
 
 use err::*;
 use std::{io, io::stdout, io::Write, str::Chars};
+use std::cell::RefCell;
+
+thread_local!(static LAST_RESULT: RefCell<f64> = RefCell::new(0.0));
 
 #[derive(Debug)]
 enum ParseState {
@@ -28,12 +31,13 @@ impl Operand {
     pub fn new(input: &str) -> Result<Operand, CalcError> {
         if let Ok(val) = input.parse::<f64>() {
             Ok(Operand::Value(val))
+        } else if input == "p" {
+          Ok(Operand::Value(LAST_RESULT.with(|cell| cell.replace_with(|old| old.clone()))))
         } else {
             let input_no_parens = &input[1..(input.len() - 1)];
 
             let exp = Expression::new(input_no_parens)?;
             Ok(Operand::Compound(Box::new(exp)))
-
         }
     }
 
@@ -136,7 +140,7 @@ impl Expression {
     fn handle_waiting(input_char: char) -> Result<(ParseState, Option<char>), CalcError> {
         if input_char.is_whitespace() {
             return Ok((ParseState::Waiting, None));
-        } else if input_char == '-' || input_char.is_numeric() {
+        } else if input_char == '-' || input_char.is_numeric() || input_char == 'p' {
             let return_val = (ParseState::Number, Some(input_char));
             return Ok(return_val);
         } else if input_char == '(' {
@@ -223,12 +227,16 @@ impl Expression {
 fn main() {
     let mut buffer = String::new();
     println!("Enter :q to quit");
+    println!("Enter :c to reset the stored value of the last calculation.");
+    println!("Enter p in the place of any number to insert the result of the previous calculation:");
     loop {
         buffer.clear();
         let input = gather_exp(&mut buffer);
         if input == ":q" {
             println!("Quitting");
             break;
+        } else if input == ":c" {
+            LAST_RESULT.with(|cell| cell.replace(0.0));
         } else {
             let expr = Expression::new(input);
             match expr {
@@ -236,11 +244,16 @@ fn main() {
                     let result = valid.calculate();
                     if result.is_infinite() {
                         println!("Cannot divide by 0");
+                        LAST_RESULT.with(|cell| cell.replace(0.0));
                     } else {
                         println!("= {}", result);
+                        LAST_RESULT.with(|cell| cell.replace(result));
                     }
                 }
-                Err(e) => println!("Expression was invalid! {}", { e }),
+                Err(e) => { 
+                    println!("Expression was invalid! {}", { e });
+                    LAST_RESULT.with(|cell| cell.replace(0.0));
+                }
             }
         }
     }
