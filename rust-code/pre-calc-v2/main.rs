@@ -232,7 +232,14 @@ fn main() {
         } else {
             let expr = Expression::new(input);
             match expr {
-                Ok(valid) => println!("= {}", valid.calculate()),
+                Ok(valid) => {
+                    let result = valid.calculate();
+                    if result.is_infinite() {
+                        println!("Cannot divide by 0");
+                    } else {
+                        println!("= {}", result);
+                    }
+                }
                 Err(e) => println!("Expression was invalid! {}", { e }),
             }
         }
