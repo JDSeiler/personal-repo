@@ -4,6 +4,14 @@ use err::*;
 use std::{io, io::stdout, io::Write, str::Chars};
 use std::cell::RefCell;
 
+/*
+To create a "global" variable in Rust you need two things:
+1. Restriction of that variable to a single thread.
+2. Wrapping of the value in a RefCell to allow dynamic borrow-checking.
+
+static ensures that this variable is always a pointer to the same RefCell,
+even if the contents of the RC change.
+*/
 thread_local!(static LAST_RESULT: RefCell<f64> = RefCell::new(0.0));
 
 #[derive(Debug)]
@@ -28,6 +36,12 @@ enum Operand {
 }
 
 impl Operand {
+    /**
+    Creates a new operand by either:
+    1. Parsing it directly to a float
+    2. Parsing it to a float via `p` which represents the previous calculation's result.
+    3. Recursively parsing it as an Expression
+    */
     pub fn new(input: &str) -> Result<Operand, CalcError> {
         if let Ok(val) = input.parse::<f64>() {
             Ok(Operand::Value(val))
@@ -41,6 +55,11 @@ impl Operand {
         }
     }
 
+    /**
+    Returns the value of an operand by either:
+    1. Returning its value (if it's just a f64)
+    2. Calculating the value of itself recursively (if it's an expression)
+    */
     fn evaluate(&self) -> f64 {
         match self {
             Operand::Value(num) => *num,
@@ -57,6 +76,10 @@ struct Expression {
 }
 
 impl Expression {
+    /**
+    Recursively generates an Expression, which is effectively a binary tree
+    representing the arithmetic expression passed as input.
+    */
     pub fn new(input: &str) -> Result<Expression, CalcError> {
         let input = input.trim();
         let op = Expression::get_operator(input)?;
@@ -70,6 +93,11 @@ impl Expression {
         })
     }
 
+    /**
+    Finds the operator of an expression by fetching the first character
+    and pattern matching it. If the character cannot be retrieved or is
+    not a valid operator, this function throws an error.
+    */
     fn get_operator(input: &str) -> Result<Operator, CalcError> {
         let operator_char = get_chr(0, input)?;
         let result = match operator_char {
@@ -88,6 +116,19 @@ impl Expression {
         Ok(result)
     }
 
+    /**
+    Uses state-based parsing to extract the operands from an expression.
+
+    The processing works by iterating over every character in the input and:
+    1. Matching on the current parse_state and handing the current character to the
+    appropriate function. These functions return the next state of the parser and may
+    return a character that represents the next Operand char. This character may be None
+    if the input_char is, for instance, whitespace.
+    2. Matching on the parse state again to decide whether this character is the start
+    of a new operand or if it should be appended to the most recent operand. This in theory
+    allows the program to parse arbitrarily many operands but this is not currently supported.
+    3. Advance the parse state to the new state produced in #1.
+    */
     fn get_operands(input: Chars) -> Result<(Box<Operand>, Box<Operand>), CalcError> {
         let mut acc: Vec<String> = Vec::new();
         let mut parse_state = ParseState::Waiting;
@@ -114,6 +155,7 @@ impl Expression {
                 // Then advance the parse_state
                 _ => {
                     if let Some(c) = maybe_value {
+                        // Strings are backed by Vec<char> so this is a fast operation.
                         acc.last_mut().unwrap().push(c)
                     }
                 }
@@ -224,6 +266,13 @@ impl Expression {
     }
 }
 
+fn set_last_result(new_value: Option<f64>) {
+    let val = new_value.unwrap_or_default();
+    // Because of the thread safety constrains required to use a static RefCell, LAST_RESULT
+    // is actually a wrapper type. Calling `with` is required to get access to the RC inside.
+    LAST_RESULT.with(|cell| cell.replace(val));
+}
+
 fn main() {
     let mut buffer = String::new();
     println!("Enter :q to quit");
@@ -236,7 +285,7 @@ fn main() {
             println!("Quitting");
             break;
         } else if input == ":c" {
-            LAST_RESULT.with(|cell| cell.replace(0.0));
+            set_last_result(None);
         } else {
             let expr = Expression::new(input);
             match expr {
@@ -244,15 +293,15 @@ fn main() {
                     let result = valid.calculate();
                     if result.is_infinite() {
                         println!("Cannot divide by 0");
-                        LAST_RESULT.with(|cell| cell.replace(0.0));
+                        set_last_result(None);
                     } else {
                         println!("= {}", result);
-                        LAST_RESULT.with(|cell| cell.replace(result));
+                        set_last_result(Some(result));
                     }
                 }
                 Err(e) => { 
                     println!("Expression was invalid! {}", { e });
-                    LAST_RESULT.with(|cell| cell.replace(0.0));
+                    set_last_result(None);
                 }
             }
         }

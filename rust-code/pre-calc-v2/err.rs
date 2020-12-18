@@ -32,16 +32,6 @@ impl fmt::Display for CalcError {
     }
 }
 
-// impl fmt::Debug for CalcError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.debug_struct("CalcError")
-//             .field("err_type", &self.err_type)
-//             .field("err_message", &self.err_message)
-//             .field("err_cause", &self.err_cause)
-//             .finish()
-//     }
-// }
-
 #[derive(Debug)]
 pub enum ErrorCategory {
     UnkownOperatorError,
